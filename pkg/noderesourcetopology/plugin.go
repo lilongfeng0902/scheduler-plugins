@@ -56,6 +56,20 @@ func newContainerScopedHandler() tmScopeHandler {
 	}
 }
 
+func BestEffortPodScopedHandler() tmScopeHandler {
+	return tmScopeHandler{
+		filter: bestEffortPodLevelHandler,
+		score:  besteffortpodScopeScore,
+	}
+}
+
+func RestrictedPodScopedHandler() tmScopeHandler {
+	return tmScopeHandler{
+		filter: bestEffortPodLevelHandler,
+		score:  besteffortpodScopeScore,
+	}
+}
+
 type PolicyHandlerMap map[topologyv1alpha1.TopologyManagerPolicy]tmScopeHandler
 
 // TopologyMatch plugin which run simplified version of TopologyManager's admit handler

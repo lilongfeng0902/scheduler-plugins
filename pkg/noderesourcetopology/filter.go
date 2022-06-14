@@ -143,6 +143,17 @@ func singleNUMAPodLevelHandler(pod *v1.Pod, zones topologyv1alpha1.ZoneList, nod
 	return nil
 }
 
+func bestEffortPodLevelHandler(pod *v1.Pod, zones topologyv1alpha1.ZoneList, nodeInfo *framework.NodeInfo) *framework.Status {
+	klog.V(5).InfoS("Pod Level Resource handler: bestEffortPodLevelHandler    noide: ", nodeInfo.Node().Name)
+	//GetPodMemoryTopologyHints(pod, zones)
+	admit := AdmitPodbestEffort(pod, zones)
+	if !admit {
+		return framework.NewStatus(framework.Unschedulable, fmt.Sprintf("cannot align pod: %s，wzh besteffortpending", pod.Name))
+	}
+	//return framework.NewStatus(framework.Unschedulable, fmt.Sprintf("cannot align pod: %s，wzh besteffortpending", pod.Name))
+	return nil
+}
+
 // Filter Now only single-numa-node supported
 func (tm *TopologyMatch) Filter(ctx context.Context, cycleState *framework.CycleState, pod *v1.Pod, nodeInfo *framework.NodeInfo) *framework.Status {
 	if nodeInfo.Node() == nil {
@@ -153,15 +164,27 @@ func (tm *TopologyMatch) Filter(ctx context.Context, cycleState *framework.Cycle
 	}
 
 	nodeName := nodeInfo.Node().Name
+	klog.V(5).InfoS("===wzh logs node name : ", nodeName)
 	nodeTopology := findNodeTopology(nodeName, tm.lister)
-
 	if nodeTopology == nil {
 		return nil
 	}
-
+	klog.V(5).InfoS("===wzh logs len(nodeTopology.TopologyPolicies) : ", len(nodeTopology.TopologyPolicies))
+	klog.V(5).InfoS("===wzh logs nodeTopology.TopologyPolicies : ", nodeTopology.TopologyPolicies)
 	klog.V(5).InfoS("Found NodeResourceTopology", "nodeTopology", klog.KObj(nodeTopology))
 	for _, policyName := range nodeTopology.TopologyPolicies {
 		if handler, ok := tm.policyHandlers[topologyv1alpha1.TopologyManagerPolicy(policyName)]; ok {
+			klog.V(5).InfoS("===wzh logs policyName :   ", policyName)
+			if policyfilter, ok := pod.Labels["policy"]; ok {
+				if policyName != policyfilter {
+					klog.V(5).InfoS("===wzh logs pod.Labels[\"policy\"] : ", policyfilter)
+					klog.V(5).InfoS("wzh node: ", nodeName, "skip thispod: ", pod.Name)
+					return framework.NewStatus(framework.Unschedulable, fmt.Sprintf("wzh node: ", nodeName, "Unschedulable thispod: ", pod.Name))
+				}
+			} else {
+				klog.V(5).InfoS("===wzh logs pod.Labels : ", pod.Labels)
+				klog.V(5).InfoS("===wzh logs pod.Labels[\"policy\"] : ", policyfilter)
+			}
 			if status := handler.filter(pod, nodeTopology.Zones, nodeInfo); status != nil {
 				return status
 			}
@@ -172,7 +195,7 @@ func (tm *TopologyMatch) Filter(ctx context.Context, cycleState *framework.Cycle
 	return nil
 }
 
-// resourceFoundOnNode checks whether a given resource exist at the node level
+// resourceFoundOnNode checks whether a given resource exist 0at the node level
 // and whether the given quantity is big enough
 func resourceFoundOnNode(resName v1.ResourceName, wantQuantity resource.Quantity, nodeInfo *framework.NodeInfo) bool {
 	resourceList := util.ResourceList(nodeInfo.Allocatable)

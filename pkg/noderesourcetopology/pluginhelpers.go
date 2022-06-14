@@ -191,6 +191,8 @@ func newPolicyHandlerMap() PolicyHandlerMap {
 	return PolicyHandlerMap{
 		topologyv1alpha1.SingleNUMANodePodLevel:       newPodScopedHandler(),
 		topologyv1alpha1.SingleNUMANodeContainerLevel: newContainerScopedHandler(),
+		topologyv1alpha1.BestEffort:                   BestEffortPodScopedHandler(),
+		topologyv1alpha1.Restricted:                   RestrictedPodScopedHandler(),
 	}
 }
 

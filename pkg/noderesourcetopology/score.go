@@ -129,6 +129,18 @@ func podScopeScore(pod *v1.Pod, zones topologyv1alpha1.ZoneList, scorerFn scoreS
 	return finalScore, nil
 }
 
+func besteffortpodScopeScore(pod *v1.Pod, zones topologyv1alpha1.ZoneList, scorerFn scoreStrategy, resourceToWeightMap resourceToWeightMap) (int64, *framework.Status) {
+	// This code is in Admit implementation of pod scope
+	// https://github.com/kubernetes/kubernetes/blob/9ff3b7e744b34c099c1405d9add192adbef0b6b1/pkg/kubelet/cm/topologymanager/scope_pod.go#L52
+	// but it works with HintProviders, takes into account all possible allocations.
+	resources := util.GetPodEffectiveRequest(pod)
+
+	allocatablePerNUMA := createNUMANodeList(zones)
+	finalScore := scoreForEachNUMANode(resources, allocatablePerNUMA, scorerFn, resourceToWeightMap)
+	klog.V(5).InfoS("pod scope scoring final node score", "finalScore", finalScore)
+	return finalScore, nil
+}
+
 func containerScopeScore(pod *v1.Pod, zones topologyv1alpha1.ZoneList, scorerFn scoreStrategy, resourceToWeightMap resourceToWeightMap) (int64, *framework.Status) {
 	// This code is in Admit implementation of container scope
 	// https://github.com/kubernetes/kubernetes/blob/9ff3b7e744b34c099c1405d9add192adbef0b6b1/pkg/kubelet/cm/topologymanager/scope_container.go#L52
